@@ -1,6 +1,6 @@
 <?php
 /**
- * Created by HCV-TARGET
+ * Created by NC TraCS.
  * User: kenbergquist
  * Date: 7/14/15
  * Time: 4:17 PM
@@ -24,7 +24,7 @@ if ($debug) {
 $base_path = dirname(dirname(dirname(__FILE__)));
 require_once $base_path . "/hooks/global/clean_variables.php";
 require_once $base_path . '/plugins/includes/functions.php';
-require_once $base_path . '/plugins/includes/prioritize_functions.php';
+require_once $base_path . '/plugins/includes/propup_functions.php';
 require_once APP_PATH_DOCROOT . '/Config/init_project.php';
 Kint::enabled($debug);
 /**
