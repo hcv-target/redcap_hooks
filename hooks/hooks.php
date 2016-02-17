@@ -61,7 +61,7 @@ function redcap_save_record($project_id, $record = NULL, $instrument, $event_id,
 }
 
 /**
- * This function executes each time a Data Entry form is saved.
+ * This function executes each time a Survey form is loaded.
  * @param $project_id
  * @param null $record
  * @param $instrument
