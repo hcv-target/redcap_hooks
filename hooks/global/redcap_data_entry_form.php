@@ -59,7 +59,7 @@ if ($Proj->validateFormEvent($instrument, $next_event_id)) { // if it's a valid 
 		var redirectURL = "<?php echo $redirect_url; ?>";
 		$(document).ready(function () {
 			/* inject Save and go to Next Event for this Form button */
-			var newButton = "<input type = \"button\" name = \"submit-btn-savenextevent\" onclick = \"gotoNextEvent(this, redirectURL);return false;\" value = \"Save and go to Next Event for this Form\" style = \"font-size:11px;\" tabindex = \"13\" >";
+			var newButton = "<input type = \"button\" class=\"btn btn-default\" name = \"submit-btn-savenextevent\" onclick = \"gotoNextEvent(this, redirectURL);return false;\" value = \"Save and go to Next Event for this Form\" style = \"margin:2px 0;font-size:11px;\" tabindex = \"13\" >";
 			$('div#__SUBMITBUTTONS__-div input').last().after("<br />", newButton);
 			$('div#formSaveTip input').last().after("<br />", newButton);
 		});
