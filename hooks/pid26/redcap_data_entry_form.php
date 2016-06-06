@@ -1,6 +1,6 @@
 <?php
 /**
- * Created by HCV-TARGET
+ * Created by HCV-TARGET.
  * User: kenbergquist
  * Date: 7/14/15
  * Time: 4:17 PM

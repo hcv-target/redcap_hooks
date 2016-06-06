@@ -8,21 +8,24 @@
 /**
  * project metadata
  */
-global $Proj;
-$timer = array();
-$timer['start'] = microtime(true);
+global $Proj, $project_id, $user_rights;
 /**
  * includes
  */
 $base_path = dirname(dirname(dirname(__FILE__)));
 //require_once $base_path . "/redcap_connect.php";
+require_once $base_path . "/hooks/global/clean_variables.php";
 require_once $base_path . '/plugins/includes/functions.php';
+require_once $base_path . '/plugins/includes/prioritize_functions.php';
 require_once APP_PATH_DOCROOT . '/Config/init_project.php';
 /**
  * DEBUG
  */
-$debug = false;
+$debug = true;
+$group_id = Treatment::getGroupID($record);
 if ($debug) {
+	$timer = array();
+	$timer['start'] = microtime(true);
 	error_log("DEBUG: " . $project_id . ' ' . $record . ' ' . $instrument . ' ' . $event_id . ' ' . $group_id);
 }
 /**
@@ -32,26 +35,37 @@ $redcap_event_name = $Proj->getUniqueEventNames($event_id);
 /**
  * restricted use
  */
-$allowed_pids = array('26');
+$allowed_pids = array('38');
 REDCap::allowProjects($allowed_pids);
 Kint::enabled($debug);
 /**
- * per-instrument operations
- * perform different actions depending upon which form ($instrument) was submitted
+ * perform no action on locked forms
  */
 if (!is_form_locked($record, $instrument, $redcap_event_name)) {
+	$arms = get_arms(array_keys($Proj->eventsForms));
+	/**
+	 * per-instrument operations
+	 * perform different actions depending upon which form ($instrument) was submitted
+	 */
 	switch ($instrument) {
-		case 'demographics':
-			/**
-			 * SET Data Access Group based upon dm_usubjid prefix
-			 */
-			$debug = false;
-			set_bmi($record, $debug);
+		case 'subject_characteristics':
 			set_dag($record, $instrument, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
+			Treatment::setTrtDuration($record, $debug);
+			schedule_surveys($record, $event_id, $group_id, $debug);
+			break;
+		case 'demographics':
+			set_bmi($record, $debug);
+			break;
+		case 'treatment_start':
+			schedule_surveys($record, $event_id, $group_id, $debug);
+			break;
+		case 'randomization':
+			Treatment::setTrtDuration($record, $debug);
+			schedule_surveys($record, $event_id, $group_id, $debug);
+			break;
+		case 'il28b_hcv_genotypes':
+			Treatment::setTrtDuration($record, $debug);
+			schedule_surveys($record, $event_id, $group_id, $debug);
 			break;
 		/**
 		 * SITE SOURCE UPLOAD FORM
@@ -70,10 +84,6 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 				} else {
 					error_log(db_error());
 				}
-			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
 			}
 			break;
 		/**
@@ -97,17 +107,12 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/**
 		 * ADVERSE EVENTS
 		 * ACTION: auto-code AE
 		 */
 		case 'adverse_events':
-			$debug = false;
 			/**
 			 * AE_AEDECOD
 			 */
@@ -147,17 +152,12 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/**
 		 * MEDICAL HISTORY
 		 * ACTION: auto-code MH
 		 */
 		case 'key_medical_history':
-			$debug = false;
 			$recode_llt = false;
 			$recode_pt = true;
 			$recode_soc = true;
@@ -209,16 +209,11 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/**
 		 * EOT
 		 */
 		case 'early_discontinuation_eot':
-			$debug = false;
 			$recode_llt = true;
 			$recode_pt = true;
 			$recode_soc = true;
@@ -263,25 +258,15 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/**
 		 * TX stop AEs
 		 */
-		case 'interferon_administration':
 		case 'ribavirin_administration':
-		case 'telaprevir_administration':
-		case 'boceprevir_administration':
-		case 'simeprevir_administration':
-		case 'sofosbuvir_administration':
-		case 'daclatasvir_administration':
 		case 'harvoni_administration':
 		case 'ombitasvir_paritaprevir':
 		case 'dasabuvir':
-			$debug = false;
+		case 'zepatier_administration':
 			$recode_llt = true;
 			$recode_pt = true;
 			$recode_soc = true;
@@ -329,17 +314,12 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/**
 		 * CONMEDS
 		 * ACTION: auto-code CONMEDS
 		 */
 		case 'conmeds':
-			$debug = false;
 			/**
 			 * CM_CMDECOD
 			 */
@@ -439,21 +419,10 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			/**
-			 * immunosuppressive?
-			 */
 			set_immunosuppressant($record, $redcap_event_name, $debug);
-			/**
-			 * Proton pump inhibitor?
-			 */
 			set_ppi($record, $redcap_event_name, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		case 'transfusions':
-			$debug = false;
 			/**
 			 * XFSN_CMDECOD
 			 */
@@ -518,14 +487,9 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'ae_coding':
-			$debug = false;
 			$recode_llt = false;
 			$recode_pt = true;
 			$recode_soc = true;
@@ -575,14 +539,9 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'mh_coding':
-			$debug = false;
 			$recode_llt = false;
 			$recode_pt = true;
 			$recode_soc = true;
@@ -634,18 +593,13 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'cm_coding':
-			$debug = false;
-			$recode_llt = true;
+			$recode_llt = false;
 			$recode_pt = true;
 			$recode_soc = true;
-			$recode_atc = true;
+			$recode_atc = false;
 			$recode_cm = true;
 			/**
 			 * CM_CMDECOD
@@ -801,14 +755,9 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 			}
 			set_immunosuppressant($record, $redcap_event_name, $debug);
 			set_ppi($record, $redcap_event_name, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'ex_coding':
-			$debug = false;
 			$recode_llt = false;
 			$recode_pt = true;
 			$recode_soc = true;
@@ -847,56 +796,31 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 					}
 				}
 			}
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		case 'cbc':
-			$debug = false;
 			set_cbc_flags($record, $debug);
 			set_cirrhosis($record, $debug);
 			standardize_lab_form($instrument, $project_id, $record, $redcap_event_name, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/*case 'inr':*/
 		case 'hcv_rna_results':
-			$debug = false;
 			set_svr_dates($record, $debug);
 			standardize_lab_form($instrument, $project_id, $record, $redcap_event_name, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'chemistry':
-			$debug = false;
 			standardize_lab_form($instrument, $project_id, $record, $redcap_event_name, $debug);
 			set_crcl($record, $event_id, 'abstracted', $debug);
 			set_deltas($record, $debug);
 			set_egfr($record, $event_id, 'abstracted', $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'fibrosis_staging':
 		case 'cirrhosis':
-			$debug = false;
 			set_cirrhosis($record, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 
 		case 'prior_treatment_response':
-			$debug = false;
 			?>
 			<script type="text/javascript">
 				$(document).ready(function () {
@@ -906,19 +830,22 @@ if (!is_form_locked($record, $instrument, $redcap_event_name)) {
 			</script>
 			<?php
 			set_treatment_exp($record, $debug);
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log(benchmark_timing($timer));
-			}
 			break;
 		/**
 		 * all other forms do nothing
 		 */
 		default:
-			if ($debug) {
-				$timer['main_end'] = microtime(true);
-				error_log("CASE DEFAULT" . benchmark_timing($timer));
-			}
 			break;
 	}
+	/**
+	 * Determine completeness of baseline, week4, eot, eot1year and eot3year surveys and record state.
+	 * this has to run on every form save to capture the passage of time. you can't
+	 */
+	if (in_array($redcap_event_name, array_keys($arms)) && $instrument != 'survey_completion') {
+		set_survey_completion($record, $debug);
+	}
+}
+if ($debug) {
+	$timer['main_end'] = microtime(true);
+	error_log(benchmark_timing($timer));
 }

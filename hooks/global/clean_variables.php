@@ -1,6 +1,6 @@
 <?php
 /**
- * Created by HCV-TARGET
+ * Created by HCV-TARGET.
  * User: kenbergquist
  * Date: 7/20/15
  * Time: 3:44 PM
@@ -13,13 +13,13 @@ if (!isset($project_id)) {
 	$project_id = $Proj->project_id;
 }
 if (!isset($record)) {
-	$record = null;
+	$record = isset($_GET['id']) ? $_GET['id'] : null;
 }
 if (!isset($instrument)) {
-	$instrument = null;
+	$instrument = isset($_GET['page']) ? $_GET['page'] : null;
 }
 if (!isset($event_id)) {
-	$event_id = null;
+	$event_id = isset($_GET['event_id']) ? $_GET['event_id'] : null;
 }
 if (!isset($group_id)) {
 	$group_id = null;
